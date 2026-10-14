@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Micrographics clock mock</title>
+<style>
+  body { margin: 0; background: #101114; color: #fff; font-family: "Segoe UI", sans-serif; padding: 16px; }
+  h3 { font-weight: 400; font-size: 12px; opacity: .6; margin: 14px 0 6px; }
+  .bar { background: #1c1d22; display: inline-flex; align-items: center; height: 48px; padding: 0 12px; }
+  .zoom { zoom: 3; }
+  .clock { display: flex; flex-direction: column; align-items: flex-start; }
+  .row { display: flex; align-items: center; }
+  .t { text-box: trim-both cap alphabetic; white-space: pre; }
+  .pill { display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  .icons { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; background: #1c1d22; padding: 10px; }
+  .light { background: #e9e9ec; color: #000; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+// ---- Icon path data (shared verbatim with the mod) ----
+function burst(cx, cy, R, r, n) {
+  let d = '';
+  for (let i = 0; i < n * 2; i++) {
+    const a = Math.PI * i / n - Math.PI / 2;
+    const rad = i % 2 ? r : R;
+    d += (i ? ' L' : 'M') + (cx + rad * Math.cos(a)).toFixed(2) + ',' + (cy + rad * Math.sin(a)).toFixed(2);
+  }
+  return d + ' Z';
+}
+function circle(cx, cy, r) {
+  return `M${cx - r},${cy} A${r},${r} 0 1 1 ${cx + r},${cy} A${r},${r} 0 1 1 ${cx - r},${cy} Z`;
+}
+// A scalloped disc: the abstract "cloud".
+function blob(cx, cy, R, lobes, lobeRatio) {
+  const rl = R * lobeRatio, rr = R - rl;
+  let d = circle(cx, cy, +rr.toFixed(2));
+  for (let i = 0; i < lobes; i++) {
+    const a = 2 * Math.PI * i / lobes;
+    d += ' ' + circle(+(cx + rr * Math.cos(a)).toFixed(2), +(cy + rr * Math.sin(a)).toFixed(2), +rl.toFixed(2));
+  }
+  return d;
+}
+// A bar centered at (cx, cy), rotated by `deg` degrees.
+function bar(cx, cy, halfLen, halfWidth, deg) {
+  const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  const p = [[-halfLen, -halfWidth], [halfLen, -halfWidth], [halfLen, halfWidth], [-halfLen, halfWidth]]
+    .map(([x, y]) => (cx + x * c - y * s).toFixed(2) + ',' + (cy + x * s + y * c).toFixed(2));
+  return `M${p[0]} L${p[1]} L${p[2]} L${p[3]} Z`;
+}
+const MOON = 'M14.49,0.26 A12,12 0 1 0 23.74,14.49 A9.6,9.6 0 0 1 14.49,0.26 Z';
+const ICONS = {
+  sun: burst(12, 12, 12, 8.4, 12),
+  moon: MOON,
+  cloud: blob(12, 12, 12, 8, 0.32),
+  partly: burst(12, 12, 12, 8.4, 12) + ' ' + blob(36, 12, 12, 8, 0.32),
+  partlyNight: MOON + ' ' + blob(36, 12, 12, 8, 0.32),
+  rain: 'M6,0 H10.5 L4.5,24 H0 Z M14.5,0 H19 L13,24 H8.5 Z M23,0 H27.5 L21.5,24 H17 Z',
+  snow: bar(12, 12, 12, 2.3, 90) + ' ' + bar(12, 12, 12, 2.3, 30) + ' ' + bar(12, 12, 12, 2.3, 150),
+  storm: 'M12,0 L2,14 H9.5 L6.5,24 L20,9.5 H12.5 L17,0 Z',
+  fog: 'M2,1.5 H18 A2.25,2.25 0 0 1 18,6 H2 A2.25,2.25 0 0 1 2,1.5 Z ' +
+       'M8,9.75 H24 A2.25,2.25 0 0 1 24,14.25 H8 A2.25,2.25 0 0 1 8,9.75 Z ' +
+       'M2,18 H18 A2.25,2.25 0 0 1 18,22.5 H2 A2.25,2.25 0 0 1 2,18 Z',
+};
+function bbox(d) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p.setAttribute('d', d); svg.appendChild(p); document.body.appendChild(svg);
+  const b = p.getBBox(); svg.remove(); return b;
+}
+// Mirrors XAML Path with Stretch=Uniform and a fixed Height.
+function icon(name, h, color) {
+  const d = ICONS[name], b = bbox(d), w = b.width * h / b.height;
+  return `<svg width="${w.toFixed(2)}" height="${h}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" style="display:block;flex:none"><path d="${d}" fill="${color}"/></svg>`;
+}
+
+function clock(o) {
+  const f = o.fontSize, fg = o.fg, inv = o.inv;
+  const pillH = Math.round(f * 1.4), gap = 2, padX = Math.round(f * 0.55), stroke = Math.max(1, f / 11);
+  const font = `font-family:'${o.font}';font-size:${f}px;font-weight:${o.weight};letter-spacing:${o.spacing || 0}em;`;
+  const t = (s, c, extra = '') => `<span class="t" style="${font}color:${c};${extra}">${s}</span>`;
+  const filled = (s) => `<div class="pill" style="height:${pillH}px;border-radius:${pillH / 2}px;background:${fg};padding:0 ${padX}px;">${t(s, inv)}</div>`;
+  const outlined = (s) => `<div class="pill" style="height:${pillH}px;border-radius:${pillH / 2}px;border:${stroke}px solid ${fg};padding:0 ${padX - stroke}px">${t(s, fg)}</div>`;
+  const unitD = Math.round(pillH * 0.83);
+  const unit = `<div class="pill" style="width:${unitD}px;height:${unitD}px;border-radius:50%;border:${stroke}px solid ${fg};margin-left:${f * 0.12}px">${t(o.unit, fg, `font-size:${f * 0.74}px;`)}</div>`;
+  const tailW = pillH * 0.42;
+  const bubble = (s) => `<div style="position:relative;display:flex">
+      <svg width="${tailW}" height="${pillH}" viewBox="0 0 ${tailW} ${pillH}" style="position:absolute;left:${-tailW * 0.38}px;top:0;overflow:visible"><path d="M0,${pillH} L${tailW * 0.75},${pillH * 0.52} L${tailW * 1.5},${pillH * 0.93} Z" fill="${fg}"/></svg>
+      ${filled(s)}</div>`;
+  const cursor = `<div style="width:${Math.round(f * 0.42)}px;height:${Math.round(f * 0.92)}px;background:${fg};margin-left:${f * 0.3}px"></div>`;
+  const row1 = `<div class="row" style="height:${pillH}px">${t('FRI', fg, `margin-right:${f * 0.38}px`)}${filled('11')}${outlined('SEP')}${t(o.time || '17:13', fg, `margin-left:${f * 0.5}px`)}${cursor}</div>`;
+  const row2 = `<div class="row" style="height:${pillH}px">${t(o.temp || '24°', fg)}${unit}<div style="margin-left:${f * 0.7}px;margin-right:${f * 0.38}px">${icon(o.icon || 'sun', Math.round(pillH * 0.95), fg)}</div>${bubble(o.cond || 'SUNNY')}</div>`;
+  return `<div class="clock" style="gap:${gap}px">${row1}${row2}</div>`;
+}
+
+(async () => { if (location.search.includes("cpp")) { Object.assign(ICONS, await (await fetch("/icons.json")).json()); document.title = "cpp icons"; }
+const out = document.getElementById("out");
+const fonts = [
+  ['Bahnschrift', 500], ['Bahnschrift', 600], ['Segoe UI Variable Display', 600], ['Segoe UI Variable Text', 500], ['Cascadia Mono', 500], ['Consolas', 700],
+];
+let html = '';
+for (const [font, weight] of fonts) {
+  html += `<h3>${font} ${weight}</h3><div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center">
+    <div class="bar zoom">${clock({ font, weight, fontSize: 13, fg: '#fff', inv: '#000', unit: 'C' })}</div>
+    <div class="bar">${clock({ font, weight, fontSize: 13, fg: '#fff', inv: '#000', unit: 'C', icon: 'partly', cond: 'PARTLY SUNNY', temp: '-3°', time: '9:05 PM' })}</div>
+    <div class="bar light">${clock({ font, weight, fontSize: 13, fg: '#000', inv: '#fff', unit: 'F', icon: 'rain', cond: 'RAIN', temp: '71°' })}</div>
+  </div>`;
+}
+html = '<h3>night / snow / storm / fog samples</h3><div style="display:flex;flex-wrap:wrap;gap:10px">' + [['partlyNight','PARTLY CLOUDY'],['partly','PARTLY SUNNY'],['cloud','CLOUDY'],['moon','CLEAR'],['snow','SNOW'],['storm','STORM'],['fog','FOGGY'],['rain','RAIN']].map(([i,c]) => '<div class="bar" style="zoom:2">' + clock({ font: 'Bahnschrift', weight: 500, fontSize: 13, fg: '#fff', inv: '#000', unit: 'C', icon: i, cond: c }) + '</div>').join('') + '</div>' + html;
+html += '<h3>icons (48px / 18px)</h3><div class="icons">' + Object.keys(ICONS).map(n => icon(n, 48, '#fff')).join('') + '</div>';
+html += '<div class="icons" style="margin-top:8px">' + Object.keys(ICONS).map(n => icon(n, 18, '#fff')).join('') + '</div>';
+out.innerHTML = html; })();
+</script>
+</body>
+</html>
