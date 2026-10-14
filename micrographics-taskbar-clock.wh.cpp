@@ -1761,7 +1761,6 @@ bool HookTaskbarDllSymbols() {
         return false;
     }
 
-    // taskbar.dll
     WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         {
             {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
