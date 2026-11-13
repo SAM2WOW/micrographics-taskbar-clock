@@ -2,7 +2,7 @@
 // @id              micrographics-taskbar-clock
 // @name            Micrographics Taskbar Clock
 // @description     Replaces the Windows 11 taskbar clock with a Nothing OS 5 "Micrographics" style clock: pill badges, a block cursor and a weather line
-// @version         1.0
+// @version         1.1
 // @author          SAM2WOW
 // @github          https://github.com/SAM2WOW
 // @homepage        https://github.com/SAM2WOW/micrographics-taskbar-clock
@@ -38,6 +38,14 @@ looked up with Open-Meteo's geocoding service.
 Alternatively, enable **Detect location from IP address** to leave the location
 empty. Your public IP address is then sent to [ipwho.is](https://ipwho.is/), or
 to [GeoJS](https://www.geojs.io/) if that fails, to approximate your location.
+
+## Languages / Diller
+
+The clock face text is available in English and Turkish. Pick the language in
+the **Language** setting.
+
+Saat yüzündeki metinler İngilizce ve Türkçe olarak sunulur. Dili ayarlardaki
+**Language** seçeneğinden seçebilirsiniz.
 
 ## Fonts
 
@@ -92,6 +100,14 @@ while it's enabled.
   - blink: Blinking
   - solid: Always visible
   - hidden: Hidden
+- language: english
+  $name: Language
+  $description: >-
+    Text language of the clock face (weekdays, months, AM/PM and weather
+    conditions).
+  $options:
+  - english: English
+  - turkish: Türkçe
 - textColor: ""
   $name: Text color
   $description: >-
@@ -165,6 +181,7 @@ using namespace winrt::Windows::UI::Xaml;
 
 enum class ClockLayout { TwoRows, OneRow };
 enum class CursorMode { Blink, Solid, Hidden };
+enum class ClockLanguage { English, Turkish };
 
 struct Settings {
     ClockLayout layout = ClockLayout::TwoRows;
@@ -175,6 +192,7 @@ struct Settings {
     bool use24Hour = true;
     bool showSeconds = false;
     CursorMode cursor = CursorMode::Blink;
+    ClockLanguage language = ClockLanguage::English;
     std::optional<winrt::Windows::UI::Color> textColor;
     std::optional<winrt::Windows::UI::Color> accentColor;
     bool weatherEnabled = false;
@@ -272,6 +290,9 @@ Settings LoadSettings() {
     s.cursor = cursor == L"solid"    ? CursorMode::Solid
                : cursor == L"hidden" ? CursorMode::Hidden
                                      : CursorMode::Blink;
+
+    s.language = str(L"language") == L"turkish" ? ClockLanguage::Turkish
+                                                : ClockLanguage::English;
 
     s.textColor = ParseColor(str(L"textColor"));
     s.accentColor = ParseColor(str(L"accentColor"));
@@ -891,57 +912,70 @@ struct WeatherDescription {
     PCWSTR label;
 };
 
+// Picks the weather label matching the configured language.
+PCWSTR WeatherLabel(PCWSTR english, PCWSTR turkish) {
+    return g_settings.language == ClockLanguage::Turkish ? turkish : english;
+}
+
 // https://open-meteo.com/en/docs#weather_variable_documentation
 WeatherDescription DescribeWeather(int code, bool isDay) {
     switch (code) {
         case 0:
-            return isDay ? WeatherDescription{WeatherIcon::Sun, L"SUNNY"}
-                         : WeatherDescription{WeatherIcon::Moon, L"CLEAR"};
+            return isDay ? WeatherDescription{WeatherIcon::Sun, WeatherLabel(
+                                L"SUNNY", L"GÜNEŞLİ")}
+                         : WeatherDescription{WeatherIcon::Moon, WeatherLabel(
+                                L"CLEAR", L"AÇIK")};
         case 1:
             return isDay
-                       ? WeatherDescription{WeatherIcon::Sun, L"MOSTLY SUNNY"}
-                       : WeatherDescription{WeatherIcon::Moon, L"MOSTLY CLEAR"};
+                       ? WeatherDescription{WeatherIcon::Sun, WeatherLabel(
+                             L"MOSTLY SUNNY", L"ÇOK GÜNEŞLİ")}
+                       : WeatherDescription{WeatherIcon::Moon, WeatherLabel(
+                             L"MOSTLY CLEAR", L"ÇOK AÇIK")};
         case 2:
             return isDay ? WeatherDescription{WeatherIcon::PartlyCloudyDay,
-                                              L"PARTLY SUNNY"}
+                                              WeatherLabel(L"PARTLY SUNNY",
+                                                           L"PARÇALI GÜNEŞLİ")}
                          : WeatherDescription{WeatherIcon::PartlyCloudyNight,
-                                              L"PARTLY CLOUDY"};
+                                              WeatherLabel(L"PARTLY CLOUDY",
+                                                           L"PARÇALI BULUTLU")};
         case 3:
-            return {WeatherIcon::Cloud, L"CLOUDY"};
+            return {WeatherIcon::Cloud, WeatherLabel(L"CLOUDY", L"BULUTLU")};
         case 45:
         case 48:
-            return {WeatherIcon::Fog, L"FOGGY"};
+            return {WeatherIcon::Fog, WeatherLabel(L"FOGGY", L"SİSLİ")};
         case 51:
         case 53:
         case 55:
         case 56:
         case 57:
-            return {WeatherIcon::Rain, L"DRIZZLE"};
+            return {WeatherIcon::Rain, WeatherLabel(L"DRIZZLE", L"ÇİSENTİ")};
         case 61:
         case 63:
         case 66:
-            return {WeatherIcon::Rain, L"RAIN"};
+            return {WeatherIcon::Rain, WeatherLabel(L"RAIN", L"YAĞMUR")};
         case 65:
         case 67:
-            return {WeatherIcon::Rain, L"HEAVY RAIN"};
+            return {WeatherIcon::Rain,
+                    WeatherLabel(L"HEAVY RAIN", L"ŞİDDETLİ YAĞMUR")};
         case 71:
         case 73:
         case 77:
         case 85:
-            return {WeatherIcon::Snow, L"SNOW"};
+            return {WeatherIcon::Snow, WeatherLabel(L"SNOW", L"KAR")};
         case 75:
         case 86:
-            return {WeatherIcon::Snow, L"HEAVY SNOW"};
+            return {WeatherIcon::Snow,
+                    WeatherLabel(L"HEAVY SNOW", L"ŞİDDETLİ KAR")};
         case 80:
         case 81:
         case 82:
-            return {WeatherIcon::Rain, L"SHOWERS"};
+            return {WeatherIcon::Rain, WeatherLabel(L"SHOWERS", L"SAĞANAK")};
         case 95:
         case 96:
         case 99:
-            return {WeatherIcon::Storm, L"STORM"};
+            return {WeatherIcon::Storm, WeatherLabel(L"STORM", L"FIRTINA")};
     }
-    return {WeatherIcon::Cloud, L"CLOUDY"};
+    return {WeatherIcon::Cloud, WeatherLabel(L"CLOUDY", L"BULUTLU")};
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1191,11 +1225,19 @@ struct DisplayState {
 
 DisplayState GetDisplayState(const SYSTEMTIME& time,
                              const WeatherData& weather) {
-    static constexpr PCWSTR kWeekdays[] = {L"SUN", L"MON", L"TUE", L"WED",
-                                           L"THU", L"FRI", L"SAT"};
-    static constexpr PCWSTR kMonths[] = {L"JAN", L"FEB", L"MAR", L"APR",
-                                         L"MAY", L"JUN", L"JUL", L"AUG",
-                                         L"SEP", L"OCT", L"NOV", L"DEC"};
+    static constexpr PCWSTR kWeekdaysEn[] = {L"SUN", L"MON", L"TUE", L"WED",
+                                             L"THU", L"FRI", L"SAT"};
+    static constexpr PCWSTR kWeekdaysTr[] = {L"PAZ", L"PZT", L"SAL", L"ÇAR",
+                                             L"PER", L"CUM", L"CMT"};
+    static constexpr PCWSTR kMonthsEn[] = {L"JAN", L"FEB", L"MAR", L"APR",
+                                           L"MAY", L"JUN", L"JUL", L"AUG",
+                                           L"SEP", L"OCT", L"NOV", L"DEC"};
+    static constexpr PCWSTR kMonthsTr[] = {L"OCA", L"ŞUB", L"MAR", L"NİS",
+                                           L"MAY", L"HAZ", L"TEM", L"AĞU",
+                                           L"EYL", L"EKİ", L"KAS", L"ARA"};
+    bool turkish = g_settings.language == ClockLanguage::Turkish;
+    const PCWSTR* kWeekdays = turkish ? kWeekdaysTr : kWeekdaysEn;
+    const PCWSTR* kMonths = turkish ? kMonthsTr : kMonthsEn;
 
     DisplayState state;
     state.weekday = kWeekdays[time.wDayOfWeek % 7];
@@ -1218,7 +1260,9 @@ DisplayState GetDisplayState(const SYSTEMTIME& time,
         state.time += L":" + twoDigits(time.wSecond);
     }
     if (!g_settings.use24Hour) {
-        state.time += time.wHour < 12 ? L" AM" : L" PM";
+        bool am = time.wHour < 12;
+        state.time += turkish ? (am ? L" ÖÖ" : L" ÖS")
+                              : (am ? L" AM" : L" PM");
     }
 
     if (g_settings.ShouldFetchWeather() && weather.valid) {

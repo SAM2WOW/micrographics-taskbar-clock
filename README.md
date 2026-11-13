@@ -36,12 +36,21 @@ To try the latest source before that:
 | 24-hour time | On | |
 | Show seconds | Off | |
 | Block cursor | Blinking | Blinking, always visible or hidden. |
+| Language | English | English or Turkish (Türkçe). |
 | Text color | Taskbar's | `#RRGGBB` or `#AARRGGBB`. |
 | Pill color | Text color | E.g. `#D71921` for Nothing red. |
 | Weather | On | |
 | Location | Auto | A city name or `latitude,longitude`. |
 | Fahrenheit | Off | |
 | Update interval | 15 minutes | |
+
+## Languages / Diller
+
+The clock face text is available in English and Turkish. Pick the language in
+the **Language** setting.
+
+Saat yüzündeki metinler İngilizce ve Türkçe olarak sunulur. Dili ayarlardaki
+**Language** seçeneğinden seçebilirsiniz.
 
 ## Weather and privacy
 
